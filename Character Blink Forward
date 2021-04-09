@@ -1,0 +1,106 @@
+//Causes the player to teleport forward a short distance
+
+using UnityEngine;
+using UnityEngine.UI;
+
+public class ShadowStep : MonoBehaviour
+{
+    public Transform startPoint;
+    public Slider delaySlider;
+
+    [SerializeField] private GameObject meleeTrigger;
+
+    [SerializeField] private float blinkDistance;
+    [SerializeField] private float seconds;
+    [SerializeField] private float delay = 50.0f;
+    public float timer;
+    [SerializeField] private float timerMax;
+
+    [SerializeField] private bool canBlink;
+    [SerializeField] private bool isHit;
+
+    void Start()
+    {
+        blinkDistance = 10.0f;
+        seconds = 1.5f;
+        delay = delay * seconds;
+        timerMax = delay;
+        timer = timerMax;
+        canBlink = true;
+        startPoint = this.transform;
+    }
+
+    void Update()
+    {
+        startPoint = transform;
+        timer += 50.0f * Time.deltaTime;
+        if(timer >= timerMax)
+        {
+            timer = timerMax;
+        }
+
+        if (Input.GetKeyDown(KeyCode.LeftShift))
+        {
+            if (canBlink)
+            {
+                Blink();
+            }
+        }
+
+        if(!canBlink && timer >= delay)
+        {
+            canBlink = true;
+        }
+
+        delaySlider.value = timer;
+    }
+
+    void Blink()
+    {
+        meleeTrigger.GetComponent<BoxCollider>().enabled = false;
+        this.gameObject.GetComponent<CharacterController>().enabled = false;
+        canBlink = false;
+
+        RaycastHit hitInfo;
+        isHit = Physics.Raycast(startPoint.position, startPoint.forward, out hitInfo, blinkDistance);
+
+        if (isHit)
+        {
+            if (hitInfo.transform.name == "Passable"|| hitInfo.transform.name == "CheckpointActual" || hitInfo.transform.name == "MechTeleporter")
+            {
+                Debug.DrawRay(startPoint.position, startPoint.forward * blinkDistance, Color.blue, 2.5f);
+                Debug.Log(hitInfo.transform.name);
+                transform.Translate(startPoint.forward * (hitInfo.distance + 1.0f), Space.World);
+            }
+
+            if(hitInfo.transform.name == "Kami-KaziLeftWall" || hitInfo.transform.name == "Kami-KaziRightWall" || hitInfo.transform.name == "ZoomCameraZoom" || hitInfo.transform.name == "GrapplingTrigger" || hitInfo.transform.name == "RangedDetector" || hitInfo.transform.name == "GrenadeThrow")
+            {
+                Debug.DrawRay(startPoint.position, startPoint.forward * blinkDistance, Color.blue, 2.5f);
+                transform.Translate(startPoint.forward * blinkDistance, Space.World);
+            }
+
+            if (hitInfo.transform.name == "Portal")
+            {
+                Debug.Log("That's probably not the best idea. . .");
+                canBlink = true;
+            }
+
+            else
+            {
+                Debug.DrawRay(startPoint.position, startPoint.forward * (hitInfo.distance - 0.5f), Color.red, 2.5f);
+                Debug.Log(hitInfo.transform.name);
+                transform.Translate(startPoint.forward * (hitInfo.distance - 1.0f), Space.World);
+            }
+        }
+
+        else
+        {
+            Debug.DrawRay(startPoint.position, startPoint.forward * blinkDistance, Color.blue, 2.5f);
+            transform.Translate(startPoint.forward * blinkDistance, Space.World);
+        }
+
+        meleeTrigger.GetComponent<BoxCollider>().enabled = true;
+        this.gameObject.GetComponent<CharacterController>().enabled = true;
+        timer = 0.0f;
+    }
+}
