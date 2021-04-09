@@ -1,0 +1,112 @@
+using UnityEngine;
+
+//The base of this script is taken from the Cinemachine follow target example package, changed a bit to fit our needs
+
+namespace Cinemachine
+{
+    public class NewCameraController : MonoBehaviour
+    {
+        [SerializeField] private GameObject MainCamera;
+                public void f_Set_MainCamera(GameObject GO) { MainCamera = GO; }
+        CinemachineVirtualCamera vcam;
+        CinemachineVirtualCamera vcam1;
+
+        [SerializeField] private GameObject player;
+        [SerializeField] private GameObject mech;
+
+        public bool zoomies;
+        [SerializeField] private float OriginalFoV;
+        [SerializeField] private float ZoomedFoV;
+    
+        void Start()
+        {
+            MainCamera = FindObjectOfType<ID_MainCamera>().gameObject;
+            player = FindObjectOfType<PlayerController>().gameObject;
+            mech = FindObjectOfType<MechController>().gameObject;
+
+            var brain = MainCamera.AddComponent<CinemachineBrain>();    //adds cinemachine brain to camera
+
+
+            //PLAYER CAM && VARIABLE SET UP
+            vcam = new GameObject("Player Camera").AddComponent<CinemachineVirtualCamera>();    //makes virtual camera for PLAYER
+            vcam.m_LookAt = player.transform;                                                   //sets player as this vcam's loot at
+            vcam.m_Follow = player.transform;                                                   //sets player as this vcam's follow
+            vcam.m_Priority = 10;                                                               //INTEGER that sets priority for this vcam
+            vcam.gameObject.transform.position = new Vector3(0.0f, 2.0f, -30.0f);
+            vcam.m_Lens.FieldOfView = OriginalFoV;                                              //sets FoV to not be so zoomed on the player
+
+            var composer = vcam.AddCinemachineComponent<CinemachineComposer>();                 //adds cinemachine composer to "AIM" && sets up variables for composer
+            composer.m_ScreenX = 0.5f;                                                          //I think this moves around where the dead zone and borders for the camera is, 0.5 X and Y is in the middle of the screen
+            composer.m_ScreenY = 0.5f;
+            composer.m_DeadZoneHeight = 0.1f;                                                   //Dead zone is how far the player can move before the camera starts to follow
+            composer.m_DeadZoneWidth = 0.1f;
+
+            var transposer = vcam.AddCinemachineComponent<CinemachineTransposer>();             //adds transponder to "BODY" && sets up variables for transponder
+            transposer.m_BindingMode = CinemachineTransposer.BindingMode.WorldSpace;            //I honestly don't know why this works, but it follows the player the best
+            transposer.m_FollowOffset = new Vector3(0.0f, 1.0f, -30.0f);                        //offset is how far off the player the camera is
+
+
+            //MECH CAM SET UP -- variables are set the same as above and do the same things
+            vcam1 = new GameObject("Mech Camera").AddComponent<CinemachineVirtualCamera>();
+            vcam1.m_LookAt = mech.transform; 
+            vcam1.m_Follow = mech.transform;
+            vcam1.m_Priority = 11;
+            vcam1.gameObject.transform.position = new Vector3(0.0f, 2.0f, -30.0f);
+            vcam1.m_Lens.FieldOfView = OriginalFoV;
+
+            var composer1 = vcam1.AddCinemachineComponent<CinemachineComposer>();
+            composer1.m_ScreenX = 0.5f;
+            composer1.m_ScreenY = 0.5f;
+            composer1.m_DeadZoneHeight = 0.1f;
+            composer1.m_DeadZoneWidth = 0.1f;
+
+            var transposer1 = vcam1.AddCinemachineComponent<CinemachineTransposer>();
+            transposer1.m_BindingMode = CinemachineTransposer.BindingMode.WorldSpace;
+            transposer1.m_FollowOffset = new Vector3(0.0f, 1.0f, -30.0f);
+        }
+    
+        void Update()
+        {
+            if(player.GetComponent<PlayerController>().isMech == false)
+            {
+                vcam1.enabled = false;
+            }
+
+            if(player.GetComponent<PlayerController>().isMech == true)
+            {
+                vcam1.enabled = true;
+            }
+
+            if(zoomies == true)                 //this was for a specific trigger volume in the final project, zoomed out camera
+            {
+                vcam.m_Lens.FieldOfView += 1.0f;
+                if(vcam.m_Lens.FieldOfView >= ZoomedFoV)
+                {
+                    vcam.m_Lens.FieldOfView = ZoomedFoV;
+                }
+
+                vcam1.m_Lens.FieldOfView += 1.0f;
+                if (vcam1.m_Lens.FieldOfView >= ZoomedFoV)
+                {
+                    vcam1.m_Lens.FieldOfView = ZoomedFoV;
+                }
+
+            }
+
+            if(zoomies == false)                 //this was for a specific trigger volume in the project, zoomed in camera
+            {
+                vcam.m_Lens.FieldOfView -= 1.0f;
+                if(vcam.m_Lens.FieldOfView <= OriginalFoV)
+                {
+                    vcam.m_Lens.FieldOfView = OriginalFoV;
+                }
+
+                vcam1.m_Lens.FieldOfView -= 1.0f;
+                if (vcam1.m_Lens.FieldOfView <= OriginalFoV)
+                {
+                    vcam1.m_Lens.FieldOfView = OriginalFoV;
+                }
+            }
+        }
+    }
+}
