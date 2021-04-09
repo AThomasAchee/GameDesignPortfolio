@@ -77,7 +77,7 @@ namespace Cinemachine
                 vcam1.enabled = true;
             }
 
-            if(zoomies == true)                 //this was for a specific trigger volume in the final project, zoomed out camera
+            if(zoomies == true)                 //this was for a specific trigger volume in the final project, zoomed out camera, was set by different script
             {
                 vcam.m_Lens.FieldOfView += 1.0f;
                 if(vcam.m_Lens.FieldOfView >= ZoomedFoV)
@@ -93,7 +93,7 @@ namespace Cinemachine
 
             }
 
-            if(zoomies == false)                 //this was for a specific trigger volume in the project, zoomed in camera
+            if(zoomies == false)                 //this was for a specific trigger volume in the project, zoomed in camera, was set by different script
             {
                 vcam.m_Lens.FieldOfView -= 1.0f;
                 if(vcam.m_Lens.FieldOfView <= OriginalFoV)
