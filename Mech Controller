@@ -1,3 +1,5 @@
+//This is for the mech that the player could jump into and out of and control
+
 using UnityEngine;
 using UnityEngine.UI;
 
