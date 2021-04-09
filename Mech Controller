@@ -1,0 +1,312 @@
+using UnityEngine;
+using UnityEngine.UI;
+
+public class MechController : MonoBehaviour
+{
+    [Header("Game Objects and Other")]
+    public GameObject shield; 
+
+    CharacterController characterController;
+
+    [SerializeField] public IdentiScript ImpactID = null;          //Used to give damage out to enemy when in Slam State
+    [SerializeField] private int iDamage = 1;                      //Default Damage
+    [SerializeField] private TopDownExitPortal ExitGate;           //A little work on some teleportation to boss rooms if need be.
+    public TopDownExitPortal f_Get_ExitGate() { return ExitGate; }
+    public void f_Set_ExitGate(GameObject GO1) { ExitGate = GO1.GetComponent<TopDownExitPortal>(); }
+
+    [SerializeField] private BulletSpawn[] BulletHose;
+    public int iHoseCount;
+    public GameObject LazerHose;
+    AudioSource playerJump;
+    public Vector3 Checkpoint;
+
+
+    public Slider sprintSlider;
+    public GameObject target;
+    public GameObject exitBox;
+    public GameObject mech;
+    public GameObject player;
+    public IdentiScript mechID;
+    public PlayerController mechPilotController;
+    public IdentiScript mechPilotID;
+    public Slider jumpSlider;
+    public Transform[] MechExit;
+    ExitChecker canExit;
+
+    [Header("Floats")]
+    public float gravity = 20.0f;
+    public float walkSpeed = 12.5f;                           //how fast the mech walks
+    public float jumpHeight = 5.0f;                           //how high the mech initially jumps
+    [SerializeField] private float startJumpHeight = 5.0f;
+    public float secondJumpHeight = 5.0f;                     //how high the secondary jump of the mech is
+    public float crouchSpeed = 5.0f;                          //how fast the mech moves when crouching
+    public float groundSlamSpeed = 1.5f;
+    private float oldWalkSpeed = 12.5f;                       //temp speed storage for crouching/running
+    public float initialSprintTime = 10f;
+    public float sprintTime;
+    [SerializeField] private float jumpSpeed = 20.0f;
+
+    [SerializeField] private float fHealthRatio;               //Prefer to store it once and use it many times.
+    [SerializeField] private bool isDisabled = false;
+    public void f_Set_IsDisabled() { isDisabled = true; }
+    public bool f_Get_IsDisabled() { return isDisabled; }
+
+
+    [Header("Bools")]
+    [SerializeField] private bool canInput = true;
+    [SerializeField] private bool hasJump = true;
+    [SerializeField] private bool gravZone = false;            //Checks to see if mech is in Gravity Zone
+    [SerializeField] public bool CanCPTeleport = false;
+
+    private Vector3 moveDirection = Vector3.zero;
+
+    public Animator anim;
+
+    void Start()
+    {
+        exitBox = GameObject.Find("ExitMech");
+        player = GameObject.Find("Mech");
+        canExit = GetComponent<ExitChecker>();
+        target = GameObject.FindWithTag("Player");
+        characterController = GetComponent<CharacterController>();
+        mechID = this.gameObject.GetComponent<IdentiScript>();
+        mechPilotController = target.GetComponent<PlayerController>();
+        mechPilotID = target.GetComponent<IdentiScript>();
+        BulletHose = GetComponentsInChildren<BulletSpawn>(); 
+        playerJump = GetComponent<AudioSource>();
+        LazerHose = GetComponentInChildren<LazerSpawn>().gameObject;
+        sprintTime = initialSprintTime;
+        jumpHeight = startJumpHeight;
+        isDisabled = false;
+        Checkpoint = this.transform.position;
+        anim = GetComponent<Animator>();
+        anim.SetBool("isIdle", true);
+    }
+
+    void Update()
+    {
+        fHealthRatio = mechID.f_Get_HP_Ratio();
+
+        if (mech.GetComponent<IdentiScript>().HP_Current <= 0)
+        {
+            gameObject.GetComponent<CharacterController>().enabled = false;
+            player.GetComponent<CharacterController>().enabled = false;
+        }
+
+        if (target.GetComponent<PlayerController>())
+        {
+            for (int i = 0; i < BulletHose.Length; i++)
+            {
+                BulletHose[i].gameObject.SetActive(target.GetComponent<PlayerController>().isMech);
+            }
+            LazerHose.SetActive(target.GetComponent<PlayerController>().isMech);
+        }
+
+        if (characterController.isGrounded)
+        {
+            hasJump = true;
+            jumpHeight = startJumpHeight;
+        }
+
+        if (canInput == true && characterController.isGrounded && target.GetComponent<PlayerController>().isMech == true)      //can player input and are they on the ground?
+        {
+            SideScrollMovement(); 
+        }
+
+        if (Input.GetButtonDown("Jump") && characterController.isGrounded && target.GetComponent<PlayerController>().isMech == true)
+        {
+            moveDirection.y = jumpHeight;         //jumpHeight;
+            playerJump.Play();
+        }
+
+        if(Input.GetButton("Jump") && target.GetComponent<PlayerController>().isMech == true && jumpHeight > 0.0f)
+        {
+            moveDirection.y = jumpSpeed;
+            jumpHeight -= 5.0f * Time.deltaTime;
+        }
+
+        if(target.GetComponent<PlayerController>().isMech == true && canInput == true && Input.GetButton("Jump"))
+        {
+            InAirMovement();
+        }
+
+        else if (target.GetComponent<PlayerController>().isMech == true && canInput == true)
+        {
+            InAirMovement();
+        }
+
+        moveDirection.y -= gravity * Time.deltaTime;        //pulls player down 
+        characterController.Move(moveDirection * Time.deltaTime);
+
+        if (canInput == true && characterController.isGrounded && target.GetComponent<PlayerController>().isMech == true && exitBox.GetComponent<ExitChecker>().canExit == true && Input.GetKeyDown(KeyCode.E) )
+        {
+            ExitMech();
+        }
+
+        f_ToggleHealthbars();
+
+        if (mechID.f_Get_IsMech() == true)
+        {
+            if (Input.GetKey(KeyCode.LeftShift) && sprintTime >= 1.1f)
+                {
+                    InvokeRepeating("Sprinting", 0.1f, 15f);
+                    CancelInvoke("SprintCountdown");
+                }
+            else
+            {
+                walkSpeed = oldWalkSpeed;
+            }
+
+            if (Input.GetKeyUp(KeyCode.LeftShift) || sprintTime <= 0f)
+            {
+                CancelInvoke("Sprinting");
+                InvokeRepeating("SprintCountdown", 0f, 1f);
+            }
+
+            if (sprintTime >= 10f)
+            {
+                CancelInvoke("SprintCountdown");
+            }
+        }
+        if(target.GetComponent<PlayerController>().isMech == true)
+        { 
+            if(Input.GetKeyDown(KeyCode.Space))
+            {
+                anim.SetBool("isWalking", false);
+                anim.SetBool("isIdle", false);
+                anim.SetBool("isJumping", true);
+                anim.SetBool("isRunning", false);
+            }
+            else if(Input.GetKey(KeyCode.LeftShift))
+            {
+                anim.SetBool("isIdle", false);
+                anim.SetBool("isWalking", false);
+                anim.SetBool("isJumping", false);
+                anim.SetBool("isRunning", true);
+            }
+            else if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.D))
+            {
+                anim.SetBool("isIdle", false);
+                anim.SetBool("isWalking", true);
+                anim.SetBool("isJumping", false);
+                anim.SetBool("isRunning", false);
+            }
+            else
+            {
+                anim.SetBool("isIdle", true);
+                anim.SetBool("isWalking", false);
+                anim.SetBool("isJumping", false);
+                anim.SetBool("isRunning", false);
+            }
+        }
+        
+        ShieldSummon();
+        sprintSlider.value = sprintTime;
+        jumpSlider.value = jumpHeight;
+    }
+
+    private void f_DealDamage()
+    {
+        if (iDamage <= ImpactID.DefensePower) { iDamage = (ImpactID.DefensePower + 1); }    // This makes our attack do at least 1 dmg.
+        ImpactID.HP_Current -= (iDamage - ImpactID.DefensePower);       // Right now, we don't do a minimum of 1. So fixing this.
+    }
+
+    private void f_ToggleHealthbars()
+    {
+        if (mechPilotController.isMech && mechPilotID.f_GetHealthbarState())
+        {
+            mechID.f_SetHealthbar(mechPilotController.isMech);          
+            mechPilotID.f_SetHealthbar(false);
+            Debug.Log("turned " + mechPilotID.f_GetHealthbarState() + " player health, turned " + mechID.f_GetHealthbarState() + " mech health");
+        }
+        
+        else if (!mechPilotController.isMech && !mechPilotID.f_GetHealthbarState())
+        {
+            mechID.f_SetHealthbar(mechPilotController.isMech);
+            mechPilotID.f_SetHealthbar(true);
+            Debug.Log("turned " + mechPilotID.f_GetHealthbarState() + " player health, turned " + mechID.f_GetHealthbarState() + " mech health");
+        }
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.gameObject.name == "GravZone") //Changes Gravity and Jump Height back to normal when not in Gravity Zone trigger
+        {
+            gravZone = true;
+            gravity = 30.0f;
+            jumpHeight = 30.0f;
+        }
+    }
+
+    void OnTriggerExit(Collider other)
+    {
+        if (other.gameObject.name == "GravZone") //Changes Gravity and Jump Height back to normal when not                                         in Gravity Zone trigger
+        {
+            gravZone = false;
+            gravity = 50.0f;
+            jumpHeight = 35.0f;
+        }
+    }
+
+    void SideScrollMovement()
+    {
+        moveDirection = new Vector3(Input.GetAxisRaw("Horizontal"), 0.0f, 0.0f).normalized;        //player input technically set up for 3D movement but only x was doing weird things
+        moveDirection *= walkSpeed;
+
+        transform.LookAt(transform.position + moveDirection);       //turn player in facing direction
+    }
+
+    void ShieldSummon()
+    {
+        if (Input.GetMouseButtonDown(1) && target.GetComponent<PlayerController>().isMech == true)
+        {
+            shield.SetActive(true);
+        }
+
+        else if ((Input.GetMouseButtonUp(1) && target.GetComponent<PlayerController>().isMech == true) || target.GetComponent<PlayerController>().isMech == false)
+        {
+            shield.SetActive(false);
+        }
+    }
+
+    void InAirMovement()
+    {
+        moveDirection.x = Input.GetAxis("Horizontal") * walkSpeed;
+        transform.LookAt(new Vector3((transform.position + moveDirection).x, transform.position.y, transform.position.z)); //StevenMagdaleno- Copied from the PlayerController script
+    }
+
+    public void ExitMech()
+    {
+        moveDirection = new Vector3(0.0f, 0.0f, 0.0f).normalized;
+        mechID.f_Set_isPlayer(false);      
+        mechID.f_Set_isDestructible(false);
+        mechID.isWall = true;              
+        target.transform.position = mech.transform.position;
+        target.SetActive(true);
+        mechPilotController.isMech = false;    
+        mechID.f_Set_IsActiveMech(false);      
+        target.transform.position = MechExit[0].transform.position;
+    }
+
+    public void ExitPortal()
+    {
+        GetComponent<Z_Fixer>().enabled = true;
+        Debug.Log("Player is at: " + gameObject.transform.position);
+        characterController.enabled = false;
+        this.gameObject.transform.position = ExitGate.f_Get_DestinationCoordinates();
+        characterController.enabled = true;
+        Debug.Log("Player is at: " + gameObject.transform.position);
+    }
+
+    void Sprinting()
+    {
+        walkSpeed = 25f;
+        sprintTime -= .1f;
+    }
+
+    void SprintCountdown()
+    {
+        sprintTime += 1f;
+        walkSpeed = oldWalkSpeed;
+    }    
+}
