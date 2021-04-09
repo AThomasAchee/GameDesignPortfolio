@@ -1,0 +1,69 @@
+//Simple locked door that checks if the player has collected all of the keys
+
+using UnityEngine;
+
+public class LockedDoor : MonoBehaviour
+{
+    [Header("Keys")]
+    [SerializeField] private GameObject Key;
+    [SerializeField] private GameObject EngineCore;
+    [SerializeField] private GameObject WeaponCore;
+    [SerializeField] private GameObject Door;
+
+    [Header("Text")]
+    [SerializeField] private GameObject NeedText;
+    [SerializeField] private GameObject KeyText;
+    [SerializeField] private GameObject EngineText;
+    [SerializeField] private GameObject WeaponText;
+
+    private void Start()
+    {
+        NeedText.SetActive(false);
+        KeyText.SetActive(false);
+        EngineText.SetActive(false);
+        WeaponText.SetActive(false);
+
+        Door.GetComponent<Renderer>().material.color = Color.white;
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.tag == "Player" && Key == null && EngineCore == null && WeaponCore == null)     //if the player approaches door with everything
+        {
+            Door.SetActive(false);      //takes down door
+        }
+
+        else if(other.tag == "Player")        //sets color of door if player is missing something
+        {
+            Door.GetComponent<Renderer>().material.color = new Color(0.55f, 0.0f, 0.15f);
+            NeedText.SetActive(true);
+
+            if(Key != null)
+            {
+                KeyText.SetActive(true);
+            }
+
+            if(EngineCore != null)
+            {
+                EngineText.SetActive(true);
+            }
+
+            if(WeaponCore != null)
+            {
+                WeaponText.SetActive(true);
+            }
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.tag == "Player")        //sets color of door if player is missing something
+        {
+            Door.GetComponent<Renderer>().material.color = Color.white;
+            NeedText.SetActive(false);
+            KeyText.SetActive(false);
+            EngineText.SetActive(false);
+            WeaponText.SetActive(false);
+        }
+    }
+}
