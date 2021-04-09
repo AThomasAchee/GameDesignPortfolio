@@ -1,0 +1,108 @@
+//Cinemachine in Unity3d is needed for this to run
+
+using UnityEngine;
+
+namespace Cinemachine
+{
+    public class CameraController : MonoBehaviour
+    {
+        [SerializeField] private GameObject mainCamera;
+        [SerializeField] private GameObject player;
+        [SerializeField] private GameObject mouse;
+
+        [SerializeField] private float minZoom = 30.0f;
+        [SerializeField] private float maxZoom = 75.0f;
+
+        CinemachineVirtualCamera mouseCam;
+        CinemachineVirtualCamera playerCam;
+
+        void Start()
+        {
+            player = GameObject.Find("Player");             //finds objects 
+            mainCamera = GameObject.Find("Main Camera");
+            mouse = GameObject.Find("Mouse is Here");
+
+            var brain = mainCamera.AddComponent<CinemachineBrain>();    //give mainCamera a brain
+
+            //mouse cam set up
+            mouseCam = new GameObject("Mouse Camera").AddComponent<CinemachineVirtualCamera>();
+            mouseCam.gameObject.transform.position = player.transform.position + new Vector3(0.0f, 10.0f, -10.0f);
+            mouseCam.m_Follow = mouse.transform;
+            mouseCam.m_Priority = 10;
+            mouseCam.m_Lens.FieldOfView = 60.0f;
+            mouseCam.transform.rotation = Quaternion.Euler(new Vector3(90.0f, 0.0f, 0.0f));
+
+            //mouse cam follows mouse
+            var MouseTransposer = mouseCam.AddCinemachineComponent<CinemachineFramingTransposer>();
+            MouseTransposer.m_LookaheadIgnoreY = true;
+            MouseTransposer.m_CameraDistance = 25.0f;
+            MouseTransposer.m_DeadZoneHeight = 0.5f;
+            MouseTransposer.m_DeadZoneWidth = 0.5f;
+            MouseTransposer.m_UnlimitedSoftZone = true;
+            MouseTransposer.m_CenterOnActivate = false;
+
+            //player cam set up
+            playerCam = new GameObject("Player Camera").AddComponent<CinemachineVirtualCamera>();
+            playerCam.gameObject.transform.position = player.transform.position + new Vector3(0.0f, 10.0f, -10.0f);
+            playerCam.m_Follow = player.transform;
+            playerCam.m_Priority = 11;
+            playerCam.m_Lens.FieldOfView = 60.0f;
+            playerCam.transform.rotation = Quaternion.Euler(new Vector3(90.0f, 0.0f, 0.0f));
+
+            //player cam follows player
+            var PlayerTransposer = playerCam.AddCinemachineComponent<CinemachineFramingTransposer>();
+            PlayerTransposer.m_LookaheadIgnoreY = true;
+            PlayerTransposer.m_CameraDistance = 25.0f;
+            PlayerTransposer.m_DeadZoneHeight = 0.0f;
+            PlayerTransposer.m_DeadZoneWidth = 0.0f;
+            PlayerTransposer.m_UnlimitedSoftZone = true;
+            PlayerTransposer.m_CenterOnActivate = false;
+
+            //sets player cam to false initially 
+            playerCam.gameObject.SetActive(false);
+        }
+
+        void Update()
+        {
+            //activates the player camera if space is held
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                mouseCam.gameObject.transform.position = playerCam.gameObject.transform.position;
+                playerCam.gameObject.SetActive(true);
+                mouseCam.gameObject.SetActive(false);
+            }
+
+            //if space is not being held, mouse cam is active
+            if (Input.GetKeyUp(KeyCode.Space))
+            {
+                mouseCam.gameObject.SetActive(true);
+                mouseCam.gameObject.transform.position = playerCam.gameObject.transform.position;
+                playerCam.gameObject.SetActive(false);
+            }
+
+            if(Input.GetAxis("Mouse ScrollWheel") < 0.0f) //zoom out
+            {
+                mouseCam.m_Lens.FieldOfView += 100.0f * Time.deltaTime;
+                playerCam.m_Lens.FieldOfView += 100.0f * Time.deltaTime;
+
+                if(mouseCam.m_Lens.FieldOfView >= maxZoom || playerCam.m_Lens.FieldOfView >= maxZoom)
+                {
+                    mouseCam.m_Lens.FieldOfView = maxZoom;
+                    playerCam.m_Lens.FieldOfView = maxZoom;
+                }
+            }      
+
+            if(Input.GetAxis("Mouse ScrollWheel") > 0.0f) //zoom in
+            {
+                mouseCam.m_Lens.FieldOfView -= 100.0f * Time.deltaTime;
+                playerCam.m_Lens.FieldOfView -= 100.0f * Time.deltaTime;
+
+                if(mouseCam.m_Lens.FieldOfView <= minZoom || playerCam.m_Lens.FieldOfView <= minZoom)
+                {
+                    mouseCam.m_Lens.FieldOfView = minZoom;
+                    playerCam.m_Lens.FieldOfView = minZoom;
+                }
+            }
+        }
+    }
+}
