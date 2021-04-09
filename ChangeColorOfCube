@@ -1,0 +1,110 @@
+using UnityEngine;
+using UnityEngine.UI;
+
+public class ChangeColor : MonoBehaviour
+{
+    //title
+    [SerializeField] private GameObject title;
+
+    //inputed color values
+    [SerializeField] private GameObject inputedRedValue;
+    [SerializeField] private GameObject inputedGreenValue;
+    [SerializeField] private GameObject inputedBlueValue;
+
+    //float color values
+    [SerializeField] private float myRedVal;
+    [SerializeField] private float myGreenVal;
+    [SerializeField] private float myBlueVal;
+
+    //calculated values
+    [SerializeField] private float newRedVal;
+    [SerializeField] private float newGreenVal;
+    [SerializeField] private float newBlueVal;
+
+    void Update()
+    {
+        //when space is hit
+        if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Return))
+        {
+            //change values and color
+            CalcNewVals();
+        }
+
+        //when delete is hit
+        if (Input.GetKeyDown(KeyCode.Delete))
+        {
+            //reset cube to default color
+            inputedRedValue.GetComponent<InputField>().text = "";
+            inputedGreenValue.GetComponent<InputField>().text = "";
+            inputedBlueValue.GetComponent<InputField>().text = "";
+            GetComponent<Renderer>().material.color = Color.white;
+            title.GetComponent<Text>().color = Color.white;
+        }
+    }
+
+    void CalcNewVals()
+    {
+        //getting inputed RED value to be a float between 0-255
+        if (inputedRedValue.GetComponent<InputField>().text != "")
+        { 
+            myRedVal = float.Parse(inputedRedValue.GetComponent<InputField>().text);
+            if (myRedVal > 255)
+            {                           //stops value overflow
+                myRedVal = 255.0f;
+            }
+            if (myRedVal < 0 || inputedRedValue.GetComponent<InputField>().text == "")
+            {                           //stops value underflow
+                myRedVal = 0.0f;
+            }
+        }
+        if(inputedRedValue.GetComponent<InputField>().text == "")
+        {
+            myRedVal = 0.0f;            //sets value to 0 if left blank
+        }
+
+        //getting inputed GREEN value to be a float between 0-255
+        if (inputedGreenValue.GetComponent<InputField>().text != "")
+        {
+            myGreenVal = float.Parse(inputedGreenValue.GetComponent<InputField>().text);
+            if (myGreenVal > 255)
+            {
+                myGreenVal = 255.0f;
+            }
+            if (myGreenVal < 0)
+            {
+                myGreenVal = 0.0f;
+            }
+        }
+        if (inputedGreenValue.GetComponent<InputField>().text == "")
+        {
+            myGreenVal = 0.0f;
+        }
+
+        //getting inputed BLUE value to be a float between 0-255
+        if (inputedBlueValue.GetComponent<InputField>().text != "")
+        {
+            myBlueVal = float.Parse(inputedBlueValue.GetComponent<InputField>().text);
+            if (myBlueVal > 255)
+            {
+                myBlueVal = 255.0f;
+            }
+            if (myBlueVal < 0)
+            {
+                myBlueVal = 0.0f;
+            }
+        }
+        if(inputedBlueValue.GetComponent<InputField>().text == "")
+        {
+            myBlueVal = 0.0f;
+        }
+
+        //changes inputed values to be 0-1
+        newRedVal = myRedVal / 255.0f;
+        newGreenVal = myGreenVal / 255.0f;
+        newBlueVal = myBlueVal / 255.0f;
+
+        //changes color of the cube
+        GetComponent<Renderer>().material.color = new Color(newRedVal, newGreenVal, newBlueVal); //could technically have this in update but it would only change when space is hit anyways 
+        title.GetComponent<Text>().color = new Color(newRedVal, newGreenVal, newBlueVal);
+    }
+}
