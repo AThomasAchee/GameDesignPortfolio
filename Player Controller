@@ -1,0 +1,233 @@
+//Similar to mech controller
+
+using UnityEngine;
+
+public class PlayerController : MonoBehaviour
+{
+    [Header("Initial Settings")]
+    [SerializeField] private float fInitialHeading = 1f;
+                             
+    public float f_Get_InitialHeading() { return fInitialHeading; }  
+    public void f_Set_InitialHeading(float f) { fInitialHeading = f; }  
+
+    [Header("Other")]
+    [SerializeField] private CharacterController characterController;
+    public GameObject player;
+    AudioSource playerJump;
+    [SerializeField] private GameObject mech;
+    [SerializeField] private Transform ExitSpawn;
+    [SerializeField] private TopDownExitPortal ExitGate;           // A little work on some teleportation to boss rooms if need be.
+    public TopDownExitPortal f_Get_ExitGate() { return ExitGate; }
+    public void f_Set_ExitGate(GameObject GO1) { ExitGate = GO1.GetComponent<TopDownExitPortal>(); }
+    public Vector3 Checkpoint;
+
+    [Header("Floats")]
+    public float gravity = 20.0f;
+    public float nullGravity = -20.0f;
+    public float walkSpeed = 12.5f;         //how fast the player walks
+    public float jumpHeight = 15.0f;        //how high the player jumps
+    public float crouchSpeed = 5.0f;        //how fast the player moves when crouching   
+    private float oldWalkSpeed;             //temp speed storage for crouching/running
+    [SerializeField] private float saveMeTimer;
+
+    [Header("Bools")]
+    public bool isDying = false;            //used for animations or checkpoints maybe 
+
+    public bool isMech = false;
+    [SerializeField] private bool atMech = false;
+    [SerializeField] private bool hasJump = true;       //checks if player has used in air jump
+    [SerializeField] private bool canInput = true;      //can move if true cannot move if false
+    [SerializeField] private bool isCrouched = false;   //probably just used for animations if we need 
+    [SerializeField] private bool gravZone = false;     //Check if player is within a Gravity Zone
+    [SerializeField] public bool CanCPTeleport = false;
+
+    public Animator anim;
+    
+    private bool canMovePlayer;
+    public bool seeMe;
+
+    private Vector3 moveDirection = Vector3.zero;
+    private Vector3 gravDirection;
+
+    void Start()
+    {
+        mech = GameObject.FindWithTag("Mech");
+        characterController = GetComponent<CharacterController>();
+        SideScrollMovement(fInitialHeading);                        // Onetime use.
+        playerJump = GetComponent<AudioSource>();
+        anim = GetComponent<Animator>();
+        anim.SetBool("isIdle", true);
+        anim.SetBool("isWalking", false);
+        anim.SetBool("isShooting", false);
+
+        saveMeTimer = 5.0f;
+        walkSpeed = 12.5f;
+
+        Checkpoint = this.transform.position;
+    }
+
+     void Update()
+    {
+        if (characterController.isGrounded)     //checks if player is on the ground
+        {
+            hasJump = true;     //gives double jump back if true
+            canMovePlayer = true;
+            saveMeTimer = 5.0f;
+        }
+
+        if (canInput == true && characterController.isGrounded)      //can player input and are they on the ground?
+        {
+            SideScrollMovement();
+
+            if (saveMeTimer > 0.0f && Input.GetButtonDown("Jump"))
+            {
+                moveDirection.y = jumpHeight;       //player jump
+                playerJump.Play();
+                Debug.Log("jump");
+                saveMeTimer = 0.0f;
+            }
+        }
+        
+        anim.SetBool("isIdle", true);
+        anim.SetBool("isWalking", false);
+
+        if (characterController.isGrounded == false && saveMeTimer > 0.0f)
+        {
+            if (Input.GetButtonDown("Jump"))
+            {
+                moveDirection.y = jumpHeight;       //player jump
+                playerJump.Play();
+                Debug.Log("jump");
+                saveMeTimer = 0.0f;
+            }
+            else
+            {
+                saveMeTimer -= 1.0f;
+            }
+        }
+
+        else if(characterController.isGrounded == false && saveMeTimer <= 0.0f)        //for double jump and ending sprint while in air 
+        {
+            InAir();
+        }
+
+        moveDirection.y -= gravity * Time.deltaTime;        //pulls player down 
+        characterController.Move(moveDirection * Time.deltaTime);
+
+        if (atMech == true && Input.GetKeyDown(KeyCode.E) && !mech.GetComponent<MechController>().f_Get_IsDisabled())
+        {
+            isMech = true;
+            IdentiScript mechID = mech.GetComponent<IdentiScript>();
+            if (mechID)
+            {
+                mechID.isPlayer = true;
+                mechID.f_Set_isDestructible(true);
+                mechID.isWall = false;
+                mechID.f_Set_IsActiveMech(true);
+            }
+            player.SetActive(false);
+        }
+
+        if (seeMe == true)
+        {
+            Invoke("RunTimeExplo", 3);
+        }
+        
+        else if (seeMe == false)
+        {
+            CancelInvoke("RunTimeExplo");
+        }
+
+        if (player.GetComponent<IdentiScript>().HP_Current <= 0)
+        {
+            gameObject.GetComponent<CharacterController>().enabled = false;
+            mech.GetComponent<CharacterController>().enabled = false;
+        }
+
+        if(Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.D))
+        {
+            anim.SetBool("isWalking", true);
+            anim.SetBool("isIdle", false);
+        }
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.GetComponent<MechTrigger>())
+        {
+            atMech = true;
+        }
+
+        if (other.GetComponent<MechController>()) { if (other.GetComponent<MechController>().f_Get_IsDisabled()) { atMech = false; } }
+
+        if (other.gameObject.name == "GravZone") //Changes Gravity and Jump Height to fit Gravity Zone                                             areas
+        {
+            gravZone = true;
+            gravity = 13.0f;
+            jumpHeight = 20.0f;
+        }
+    }
+
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.GetComponent<MechTrigger>())
+        {
+            atMech = false;
+        }
+
+        if (other.GetComponent<MechController>()) { if (other.GetComponent<MechController>().f_Get_IsDisabled()) { atMech = false; } }
+
+        if (other.gameObject.name == "GravZone") //Changes Gravity and Jump Height back to normal when not                                         in Gravity Zone trigger
+        {
+            gravZone = false;
+            gravity = 40.0f;
+            jumpHeight = 25.0f;
+        }
+    }
+
+    void InAir()
+    {
+        moveDirection.x = Input.GetAxis("Horizontal") * walkSpeed;
+
+        if (characterController.isGrounded == false && canInput == true && Input.GetButtonDown("Jump") && hasJump == true)         //double jump        
+        {
+            Debug.Log("jump jump");
+            moveDirection.y = jumpHeight;
+            playerJump.Play();
+            hasJump = false;
+        }
+        
+        transform.LookAt(new Vector3((transform.position + moveDirection).x, transform.position.y, transform.position.z));
+    }
+
+    void SideScrollMovement()
+    {
+        moveDirection = new Vector3(Input.GetAxisRaw("Horizontal"), 0.0f, 0.0f).normalized;        //player input technically set up for 3D movement but only x was doing weird things
+        moveDirection *= walkSpeed;
+
+        transform.LookAt(transform.position + moveDirection);       //turn player in facing direction
+    }
+
+    void SideScrollMovement(float f)
+    {
+        moveDirection = new Vector3(0f, 0f, 0f);
+        transform.forward = new Vector3(f, 0f, 0f);   
+    }
+
+    public void ExitPortal()
+    {
+        GetComponent<Z_Fixer>().enabled = true;
+        Debug.Log("Player is at: " + gameObject.transform.position);
+        characterController.enabled = false;
+        this.gameObject.transform.position = ExitGate.f_Get_DestinationCoordinates();
+        characterController.enabled = true;
+        Debug.Log("Player is at: " + gameObject.transform.position);
+    }
+
+    public void RunTimeExplo()
+    {
+        player.gameObject.GetComponent<CharacterController>().enabled = false;
+        player.gameObject.AddComponent<Rigidbody>();
+    } 
+}
